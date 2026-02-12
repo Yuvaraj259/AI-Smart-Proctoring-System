@@ -6,7 +6,11 @@ load_dotenv()
 
 class Database:
     def __init__(self):
-        self.db_path = os.getenv('DB_PATH', 'proctor.db')
+        # On Vercel, the filesystem is read-only. We must use /tmp for SQLite.
+        if os.getenv('VERCEL'):
+            self.db_path = '/tmp/proctor.db'
+        else:
+            self.db_path = os.getenv('DB_PATH', 'proctor.db')
         self._initialize_db()
 
     def _get_connection(self):
