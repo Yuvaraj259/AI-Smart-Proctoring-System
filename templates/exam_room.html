@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Exam in Progress{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Examination in Progress</h2>
+        <a href="{{ url_for('stop_exam', exam_id=exam_id) }}" class="btn btn-danger">Stop & Finish Exam</a>
+    </div>
+
+    <div class="video-container">
+        <img src="{{ url_for('video_feed', exam_id=exam_id) }}" class="video-feed" alt="Proctoring Feed">
+    </div>
+
+    <div style="margin-top: 30px;">
+        <h3>Recent Violations</h3>
+        <div id="violation-log" class="violation-list">
+            <!-- Violations will be prepended here via JS -->
+            <p id="no-violations" style="color: var(--text-muted);">Monitoring active... No violations detected yet.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const examId = "{{ exam_id }}";
+    let seenViolations = new Set();
+
+    async function fetchViolations() {
+        try {
+            const response = await fetch(`/api/violations/${examId}`);
+            const violations = await response.json();
+            const logDiv = document.getElementById('violation-log');
+            const placeholder = document.getElementById('no-violations');
+
+            if (violations.length > 0 && placeholder) {
+                placeholder.remove();
+            }
+
+            violations.forEach(v => {
+                const vKey = `${v.type}-${v.timestamp}`;
+                if (!seenViolations.has(vKey)) {
+                    seenViolations.add(vKey);
+
+                    const div = document.createElement('div');
+                    div.className = 'violation-item';
+                    div.innerHTML = `
+                        <span class="violation-type">${v.type}</span>
+                        <span class="timestamp">${new Date(v.timestamp).toLocaleTimeString()}</span>
+                    `;
+                    logDiv.prepend(div);
+                }
+            });
+        } catch (err) {
+            console.error("Failed to fetch violations", err);
+        }
+    }
+
+    // Poll for violations every 3 seconds
+    setInterval(fetchViolations, 3000);
+
+    // Tab Switching Detection
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.warn("Tab switch detected!");
+            fetch(`/api/log_violation/${examId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'TAB_SWITCH' })
+            }).catch(err => console.error("Failed to log tab switch", err));
+        }
+    });
+
+    // Window focus loss detection (optional additional layer)
+    window.addEventListener('blur', () => {
+        // Log "WINDOW_BLUR" if needed, but TAB_SWITCH via visibilitychange is more reliable in most browsers
+    });
+</script>
+{% endblock %}

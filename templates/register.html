@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Face Registration{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Face Registration</h2>
+        <a href="{{ url_for('index') }}" class="btn" style="background: rgba(255,255,255,0.1); color: white;">Back</a>
+    </div>
+
+    <p style="color: var(--text-muted); margin-bottom: 25px;">
+        Please position your face clearly in the camera and click <strong>Capture & Register</strong>.
+        This will be used for anti-impersonation during the exam.
+    </p>
+
+    <div class="video-container" style="max-width: 500px; margin: 0 auto;">
+        <video id="webcam" autoplay playsinline muted
+            style="width: 100%; transform: scaleX(-1); background: #000; border-radius: 10px;"></video>
+        <canvas id="photo-canvas" style="display: none;"></canvas>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <div id="registration-form">
+            <input type="text" id="reg_student_id" placeholder="Student ID (e.g. STU001)"
+                style="margin-bottom: 15px; max-width: 300px;">
+            <br>
+            <button id="capture-btn" class="btn btn-primary" style="width: 300px;" disabled>Waiting for
+                Camera...</button>
+        </div>
+        <div id="status-msg" style="margin-top: 15px;"></div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('photo-canvas');
+    const captureBtn = document.getElementById('capture-btn');
+    const statusMsg = document.getElementById('status-msg');
+    const studentIdInput = document.getElementById('reg_student_id');
+
+    async function initCamera() {
+        const constraints = [
+            { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+            { video: true } // Fallback to any video device
+        ];
+
+        for (const constraint of constraints) {
+            try {
+                console.log("Attempting camera with:", constraint);
+                const stream = await navigator.mediaDevices.getUserMedia(constraint);
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    captureBtn.disabled = false;
+                    captureBtn.innerText = "Capture & Register";
+                    statusMsg.innerHTML = `<span style="color: var(--success-color);">Camera connected and ready.</span>`;
+                };
+                return; // Success!
+            } catch (err) {
+                console.warn(`Constraint failed:`, err);
+            }
+        }
+
+        // If we get here, all attempts failed
+        handleCameraError();
+    }
+
+    // Listen for hardware changes (like toggling a physical switch)
+    if (navigator.mediaDevices) {
+        navigator.mediaDevices.addEventListener('devicechange', () => {
+            console.log("Hardware change detected, retrying...");
+            initCamera();
+        });
+    }
+
+    async function handleCameraError() {
+        let errorTitle = "Hardware Not Found";
+        let instructions = `
+            <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9em; line-height: 1.6;">
+                <p>Despite browser permission being <b>ON</b>, your Windows OS is hiding the camera hardware.</p>
+                <strong>Try these 3 fixes:</strong><br>
+                1. <b>Keyboard Switch:</b> Press <b>F8</b> or <b>Fn+F8</b> (or look for a camera icon on your F-keys). This "connects" the hardware.<br>
+                2. <b>Windows Privacy:</b> Search "Camera Privacy Settings" in Windows and enable <b>"Allow desktop apps to access your camera"</b>.<br>
+                3. <b>Physical Slider:</b> Check if there is a tiny physical slider above your laptop screen lens.
+            </div>
+        `;
+
+        if (!navigator.mediaDevices) {
+            errorTitle = "Insecure Context Block";
+            instructions = `
+                <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
+                    <strong>Browser is blocking the camera.</strong><br>
+                    1. Change your URL to <strong>http://localhost:5000</strong><br>
+                    2. Do NOT use 127.0.0.1.
+                </div>
+            `;
+        }
+
+        statusMsg.innerHTML = `
+            <div style="color: var(--error-color);">
+                <h4 style="margin: 0;">${errorTitle}</h4>
+                ${instructions}
+            </div>
+        `;
+        captureBtn.innerText = "Check Again & Refresh";
+        captureBtn.disabled = false;
+        captureBtn.onclick = () => window.location.reload();
+    }
+
+    if (!navigator.mediaDevices) {
+        handleCameraError();
+    } else {
+        initCamera();
+    }
+
+    captureBtn.addEventListener('click', async () => {
+        const studentId = studentIdInput.value.trim();
+        if (!studentId) {
+            statusMsg.innerHTML = `<span style="color: var(--error-color);">Please enter your Student ID.</span>`;
+            return;
+        }
+
+        statusMsg.innerHTML = `<span style="color: var(--text-muted);">Processing face encoding...</span>`;
+        captureBtn.disabled = true;
+
+        // Capture frame
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            statusMsg.innerHTML = `<span style="color: var(--error-color);">Camera not ready. Please wait a moment.</span>`;
+            captureBtn.disabled = false;
+            return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+
+        const imageData = canvas.toDataURL('image/jpeg');
+
+        try {
+            const response = await fetch('/register_face', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: studentId,
+                    image: imageData
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                statusMsg.innerHTML = `<span style="color: var(--success-color);">${result.message}</span>`;
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } else {
+                statusMsg.innerHTML = `<span style="color: var(--error-color);">${result.message}</span>`;
+                captureBtn.disabled = false;
+            }
+        } catch (err) {
+            console.error("Registration error:", err);
+            statusMsg.innerHTML = `<span style="color: var(--error-color);">An error occurred. Please try again.</span>`;
+            captureBtn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

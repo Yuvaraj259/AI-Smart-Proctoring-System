@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Examination Report{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Examination Report</h2>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Home</a>
+    </div>
+
+    <div style="margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+            <p style="color: var(--text-muted);">Student ID</p>
+            <p style="font-weight: 600; font-size: 1.1em;">{{ exam.student_id }}</p>
+        </div>
+        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+            <p style="color: var(--text-muted);">Exam ID</p>
+            <p style="font-weight: 600; font-size: 1.1em;">#{{ exam.exam_id }}</p>
+        </div>
+        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+            <p style="color: var(--text-muted);">Start Time</p>
+            <p style="font-weight: 600;">{{ exam.start_time }}</p>
+        </div>
+        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+            <p style="color: var(--text-muted);">End Time</p>
+            <p style="font-weight: 600;">{{ exam.end_time or 'N/A' }}</p>
+        </div>
+    </div>
+
+    <h3>Violation Summary</h3>
+    <div class="violation-list">
+        {% if violations %}
+        {% for v in violations %}
+        <div class="violation-item">
+            <span class="violation-type"
+                style="color: {% if v.type == 'NO_FACE' %}#f59e0b{% elif v.type == 'IMPERSONATION' %}#ef4444{% else %}#ef4444{% endif %};">
+                {{ v.type }}
+            </span>
+            <span class="timestamp">{{ v.timestamp }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="padding: 20px; text-align: center; color: var(--success-color);">
+            No violations detected. Clean session!
+        </p>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" class="btn" style="background: rgba(255,255,255,0.1); color: white;">Print
+            Report</button>
+    </div>
+</div>
+{% endblock %}

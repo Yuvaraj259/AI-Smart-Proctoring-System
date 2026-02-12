@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <h1>AI-Based Smart Proctoring System</h1>
+    <p style="color: var(--text-muted); margin-bottom: 25px;">Please enter your Student ID to begin the examination.</p>
+
+    <form action="{{ url_for('start_exam') }}" method="POST">
+        <label for="student_id" style="font-weight: 600;">Student ID</label>
+        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU001" required>
+
+        <div style="margin-top: 10px; margin-bottom: 20px; text-align: right;">
+            <a href="{{ url_for('register_page') }}"
+                style="color: var(--primary-color); text-decoration: none; font-size: 0.9em; font-weight: 600;">Not
+                Registered? Face Registration</a>
+        </div>
+
+        <div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Start Examination</button>
+        </div>
+    </form>
+
+    <div
+        style="margin-top: 30px; padding: 15px; background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 10px;">
+        <p style="font-size: 0.9em; color: #ffd166;">
+            <strong>Warning:</strong> The proctoring system will monitor your face throughout the exam. Multiple faces
+            or missing faces will be logged as violations.
+        </p>
+    </div>
+</div>
+{% endblock %}
