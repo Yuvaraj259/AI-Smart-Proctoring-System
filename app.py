@@ -1,6 +1,4 @@
 from flask import Flask, render_template, Response, request, redirect, url_for, jsonify
-from proctor_engine import ProctorEngine
-from models import StudentModel, ExamModel, ViolationModel
 import os
 from dotenv import load_dotenv
 
@@ -66,6 +64,7 @@ def register_face():
     face_roi = cv2.resize(face_roi, (200, 200))
 
     # Check if student exists
+    from models import StudentModel
     student = StudentModel.get_by_id(student_id)
     if not student:
         return jsonify({'success': False, 'message': f'Student ID {student_id} not found. Please contact admin.'})
@@ -79,6 +78,7 @@ def register_face():
 
 @app.route('/start_exam', methods=['POST'])
 def start_exam():
+    from models import StudentModel, ExamModel
     student_id = request.form.get('student_id')
     student = StudentModel.get_by_id(student_id)
     
@@ -93,6 +93,7 @@ def start_exam():
 
 @app.route('/exam_room/<int:exam_id>')
 def exam_room(exam_id):
+    from models import ExamModel
     exam = ExamModel.get_exam(exam_id)
     if not exam:
         return "Exam not found", 404
@@ -100,6 +101,7 @@ def exam_room(exam_id):
 
 @app.route('/video_feed/<int:exam_id>')
 def video_feed(exam_id):
+    from proctor_engine import ProctorEngine
     if exam_id not in active_exams:
         engine = ProctorEngine(exam_id)
         engine.start()
@@ -110,6 +112,7 @@ def video_feed(exam_id):
 
 @app.route('/stop_exam/<int:exam_id>')
 def stop_exam(exam_id):
+    from models import ExamModel
     if exam_id in active_exams:
         active_exams[exam_id].stop()
         del active_exams[exam_id]
@@ -119,17 +122,20 @@ def stop_exam(exam_id):
 
 @app.route('/report/<int:exam_id>')
 def view_report(exam_id):
+    from models import ExamModel, ViolationModel
     exam = ExamModel.get_exam(exam_id)
     violations = ViolationModel.get_by_exam(exam_id)
     return render_template('report.html', exam=exam, violations=violations)
 
 @app.route('/api/violations/<int:exam_id>')
 def get_violations(exam_id):
+    from models import ViolationModel
     violations = ViolationModel.get_by_exam(exam_id)
     return jsonify(violations)
 
 @app.route('/api/log_violation/<int:exam_id>', methods=['POST'])
 def log_browser_violation(exam_id):
+    from models import ViolationModel
     data = request.json
     violation_type = data.get('type')
     if violation_type:
@@ -139,6 +145,7 @@ def log_browser_violation(exam_id):
 
 @app.route('/admin')
 def admin_dashboard():
+    from models import ExamModel
     stats = ExamModel.get_stats()
     exams = ExamModel.get_all()
     # Add active status to exams
