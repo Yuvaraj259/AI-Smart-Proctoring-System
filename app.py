@@ -51,17 +51,31 @@ def register_face():
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Use Haar Cascade to find the face
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    # Try different common paths for cascades or download if missing
+    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    
+    if face_cascade.empty():
+        # Fallback to a local path or common linux path
+        face_cascade = cv2.CascadeClassifier('/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml')
+
+    # Detect faces with more lenient parameters
+    # scaleFactor=1.1 (smaller is more thorough), minNeighbors=3 (lower is more lenient)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
     
     if len(faces) == 0:
-        return jsonify({'success': False, 'message': 'No face detected. Please try again.'})
+        # Final attempt with extreme leniency
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3)
+        
+    if len(faces) == 0:
+        return jsonify({'success': False, 'message': 'No face detected. Ensure your face is well-lit and clearly visible.'})
     if len(faces) > 1:
-        return jsonify({'success': False, 'message': 'Multiple faces detected. Please register alone.'})
+        return jsonify({'success': False, 'message': 'Multiple faces detected. Please ensure only one person is in the frame.'})
 
     (x, y, w, h) = faces[0]
     face_roi = gray[y:y+h, x:x+w]
     face_roi = cv2.resize(face_roi, (200, 200))
+
 
     # Check if student exists
     from models import StudentModel
@@ -99,18 +113,45 @@ def exam_room(exam_id):
         return "Exam not found", 404
     return render_template('exam_room.html', exam_id=exam_id)
 
-@app.route('/video_feed/<int:exam_id>')
-def video_feed(exam_id):
+@app.route('/process_proctor_frame/<int:exam_id>', methods=['POST'])
+def process_proctor_frame(exam_id):
     from proctor_engine import ProctorEngine
+    import base64
+    import numpy as np
+    import cv2
+
+    data = request.json
+    image_data_full = data.get('image')
+    if not image_data_full:
+        return jsonify({'success': False, 'message': 'No image data'})
+
+    # Decode image
+    try:
+        image_data = image_data_full.split(',')[1]
+        img_bytes = base64.b64decode(image_data)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
     if exam_id not in active_exams:
-        engine = ProctorEngine(exam_id)
-        engine.start()
-        active_exams[exam_id] = engine
+        active_exams[exam_id] = ProctorEngine(exam_id)
     
-    return Response(active_exams[exam_id].generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    # Process frame
+    processed_frame, violation = active_exams[exam_id].process_frame(frame)
+    
+    # Encode back to base64 to show in UI
+    _, buffer = cv2.imencode('.jpg', processed_frame)
+    processed_base64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'success': True, 
+        'image': f'data:image/jpeg;base64,{processed_base64}',
+        'violation': violation
+    })
 
 @app.route('/stop_exam/<int:exam_id>')
+
 def stop_exam(exam_id):
     from models import ExamModel
     if exam_id in active_exams:

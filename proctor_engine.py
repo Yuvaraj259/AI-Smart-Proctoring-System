@@ -1,5 +1,4 @@
 import cv2
-import threading
 import time
 import numpy as np
 import pickle
@@ -10,93 +9,73 @@ class ProctorEngine:
         self.exam_id = exam_id
         # Get student encoding
         exam = ExamModel.get_exam(exam_id)
+        if not exam:
+            raise ValueError(f"Exam {exam_id} not found")
+            
         student = StudentModel.get_by_id(exam['student_id'])
         
         self.face_recognizer = None
-        if student['face_encoding']:
+        if student and student.get('face_encoding'):
             try:
                 registered_face = pickle.loads(student['face_encoding'])
                 # Initialize LBPH Face Recognizer
                 self.face_recognizer = cv2.face.LBPHFaceRecognizer_create()
-                # Train with the single registered face (as a list)
                 self.face_recognizer.train([registered_face], np.array([1]))
             except Exception as e:
                 print(f"Error initializing face recognizer: {e}")
 
-        # Load the pre-trained Haar Cascade classifier for face detection
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        self.cap = None
-        self.is_running = False
+        # Load the Haar Cascade
+        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        if self.face_cascade.empty():
+            self.face_cascade = cv2.CascadeClassifier('/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml')
+
         self.last_violation_time = 0
         self.violation_cooldown = 2
-        self.last_recognition_time = 0
-        self.recognition_interval = 5
 
-    def start(self):
-        self.cap = cv2.VideoCapture(0)
-        self.is_running = True
+    def process_frame(self, frame):
+        """Processes a single frame sent from the client and returns the processed frame and violation status."""
+        if frame is None:
+            return None, None
 
-    def stop(self):
-        self.is_running = False
-        if self.cap:
-            self.cap.release()
-        cv2.destroyAllWindows()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Use more robust parameters
+        faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-    def generate_frames(self):
-        while self.is_running:
-            success, frame = self.cap.read()
-            if not success:
-                break
-            
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+        violation_type = None
+        color = (0, 255, 0) # Default: Success Green
+        
+        if len(faces) == 0:
+            violation_type = "NO_FACE"
+            color = (0, 0, 255) # Red
+        elif len(faces) > 1:
+            violation_type = "MULTIPLE_FACES"
+            color = (0, 0, 255) # Red
+        else:
+            # Single face detected, check for impersonation
+            if self.face_recognizer is not None:
+                (x, y, w, h) = faces[0]
+                current_face = gray[y:y+h, x:x+w]
+                current_face = cv2.resize(current_face, (200, 200))
 
-            violation_type = None
-            if len(faces) == 0:
-                violation_type = "NO_FACE"
-                color = (0, 0, 255)
-            elif len(faces) > 1:
-                violation_type = "MULTIPLE_FACES"
-                color = (0, 0, 255)
-            else:
-                color = (0, 255, 0)
+                label, confidence = self.face_recognizer.predict(current_face)
+                # LBPH confidence: lower is better. 85 is a safe threshold.
+                if confidence > 85: 
+                    violation_type = "IMPERSONATION"
+                    color = (0, 0, 255)
 
-            # Draw bounding boxes
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
-            
-            status_text = f"Status: {violation_type if violation_type else 'Normal'}"
-            
-            # Anti-Impersonation Check
-            if len(faces) == 1 and self.face_recognizer is not None:
-                if time.time() - self.last_recognition_time > self.recognition_interval:
-                    self.last_recognition_time = time.time()
-                    
-                    (x, y, w, h) = faces[0]
-                    current_face = gray[y:y+h, x:x+w]
-                    current_face = cv2.resize(current_face, (200, 200))
+        # Draw bounding boxes and status
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+        
+        status_text = f"Status: {violation_type if violation_type else 'Secure'}"
+        cv2.putText(frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
-                    label, confidence = self.face_recognizer.predict(current_face)
-                    # Lower confidence means better match for LBPH
-                    # Generally < 70 is a good match depending on environment
-                    if confidence > 85: 
-                        violation_type = "IMPERSONATION"
-                        color = (0, 0, 255)
-                        status_text = "Status: IMPERSONATION DETECTED"
-                        print(f"Impersonation Alert! Confidence: {confidence}")
+        # Log violation to database if cooldown passed
+        if violation_type and (time.time() - self.last_violation_time > self.violation_cooldown):
+            ViolationModel.log_violation(self.exam_id, violation_type)
+            self.last_violation_time = time.time()
+            print(f"Logged Violation: {violation_type}")
 
-            cv2.putText(frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        return frame, violation_type
 
-            # Log violation to database with cooldown
-            if violation_type and (time.time() - self.last_violation_time > self.violation_cooldown):
-                ViolationModel.log_violation(self.exam_id, violation_type)
-                self.last_violation_time = time.time()
-                print(f"Logged Violation: {violation_type}")
-
-            # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-        self.stop()

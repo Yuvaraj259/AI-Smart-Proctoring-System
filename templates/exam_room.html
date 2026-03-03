@@ -11,8 +11,14 @@
         </a>
     </div>
 
+    <!-- Hidden components for frame capture -->
+    <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+    <canvas id="proc-canvas" style="display: none;"></canvas>
+
     <div class="video-container">
-        <img src="{{ url_for('video_feed', exam_id=exam_id) }}" class="video-feed" alt="Proctoring Feed">
+        <!-- Display proctored frames from server -->
+        <img id="proctor-display" src="" class="video-feed" alt="Initializing Security Feed..."
+            style="background: #000; min-height: 480px;">
         <div class="status-badge">
             <div class="status-dot"></div>
             <span>SECURE PROCTORING ACTIVE</span>
@@ -36,57 +42,84 @@
 
 <script>
     const examId = "{{ exam_id }}";
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('proc-canvas');
+    const display = document.getElementById('proctor-display');
+    const logDiv = document.getElementById('violation-log');
+    const placeholder = document.getElementById('no-violations');
     let seenViolations = new Set();
 
-    async function fetchViolations() {
+    async function initWebcam() {
         try {
-            const response = await fetch(`/api/violations/${examId}`);
-            const violations = await response.json();
-            const logDiv = document.getElementById('violation-log');
-            const placeholder = document.getElementById('no-violations');
-
-            if (violations.length > 0 && placeholder) {
-                placeholder.style.display = 'none';
-            }
-
-            violations.forEach(v => {
-                const vKey = `${v.type}-${v.timestamp}`;
-                if (!seenViolations.has(vKey)) {
-                    seenViolations.add(vKey);
-
-                    const div = document.createElement('div');
-                    div.className = 'violation-item';
-                    div.style.borderLeft = '4px solid var(--error)';
-                    div.innerHTML = `
-                        <div>
-                            <span class="violation-type">${v.type.replace('_', ' ')}</span>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Incident Detected</div>
-                        </div>
-                        <span class="timestamp"><i class="far fa-clock"></i> ${new Date(v.timestamp).toLocaleTimeString()}</span>
-                    `;
-                    logDiv.prepend(div);
-
-                    // Trigger a subtle vibration or sound if possible (optional)
-                    if ('vibrate' in navigator) navigator.vibrate(200);
-                }
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
         } catch (err) {
-            console.error("Failed to fetch violations", err);
+            console.error("Webcam error:", err);
+            alert("Webcam is required for the exam. Please enable it.");
         }
     }
 
-    // Poll for violations every 3 seconds
-    setInterval(fetchViolations, 3000);
+    async function captureAndSend() {
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-    // Tab Switching Detection
+        canvas.width = 640;
+        canvas.height = 480;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg', 0.6);
+
+        try {
+            const response = await fetch(`/process_proctor_frame/${examId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                display.src = data.image;
+                if (data.violation) {
+                    addViolationToLog(data.violation);
+                }
+            }
+        } catch (err) {
+            console.error("Proctoring API error:", err);
+        }
+    }
+
+    function addViolationToLog(type) {
+        // Prevent spamming the local log
+        const bucket = Math.floor(Date.now() / 5000);
+        const vKey = `${type}-${bucket}`;
+        if (seenViolations.has(vKey)) return;
+        seenViolations.add(vKey);
+
+        if (placeholder) placeholder.style.display = 'none';
+
+        const div = document.createElement('div');
+        div.className = 'violation-item';
+        div.style.borderLeft = '4px solid var(--error)';
+        div.innerHTML = `
+            <div>
+                <span class="violation-type">${type.replace('_', ' ')}</span>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Incident Detected</div>
+            </div>
+            <span class="timestamp"><i class="far fa-clock"></i> ${new Date().toLocaleTimeString()}</span>
+        `;
+        logDiv.prepend(div);
+    }
+
+    initWebcam().then(() => {
+        setInterval(captureAndSend, 1000);
+    });
+
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-            console.warn("Tab switch detected!");
             fetch(`/api/log_violation/${examId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'TAB_SWITCH' })
-            }).catch(err => console.error("Failed to log tab switch", err));
+            });
+            addViolationToLog('TAB_SWITCH');
         }
     });
 </script>
