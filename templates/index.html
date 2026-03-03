@@ -4,30 +4,50 @@
 
 {% block content %}
 <div class="glass-card">
-    <h1>AI-Based Smart Proctoring System</h1>
-    <p style="color: var(--text-muted); margin-bottom: 25px;">Please enter your Student ID to begin the examination.</p>
+    <div style="text-align: center; margin-bottom: 40px;">
+        <div
+            style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);">
+            <i class="fas fa-shield-alt" style="font-size: 40px; color: white;"></i>
+        </div>
+        <h1 class="gradient-text" style="font-size: 2.5rem; margin-bottom: 10px;">AI Smart Proctor</h1>
+        <p style="color: var(--text-muted); font-size: 1.1rem;">Secure, Intelligent, and Reliability-Focused Examination
+            Monitoring.</p>
+    </div>
 
     <form action="{{ url_for('start_exam') }}" method="POST">
-        <label for="student_id" style="font-weight: 600;">Student ID</label>
-        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU001" required>
+        <div style="margin-bottom: 25px;">
+            <label for="student_id"
+                style="font-weight: 600; display: block; margin-bottom: 8px; color: var(--text-main);">Student
+                ID</label>
+            <div style="position: relative;">
+                <i class="fas fa-user-circle"
+                    style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                <input type="text" id="student_id" name="student_id" placeholder="e.g. STU001" required
+                    style="padding-left: 45px;">
+            </div>
+        </div>
 
-        <div style="margin-top: 10px; margin-bottom: 20px; text-align: right;">
+        <div style="margin-bottom: 30px; text-align: right;">
             <a href="{{ url_for('register_page') }}"
-                style="color: var(--primary-color); text-decoration: none; font-size: 0.9em; font-weight: 600;">Not
-                Registered? Face Registration</a>
+                style="color: var(--primary); text-decoration: none; font-size: 0.95rem; font-weight: 600; transition: color 0.2s;">
+                <i class="fas fa-id-card" style="margin-right: 5px;"></i> Need Registration? Click here
+            </a>
         </div>
 
-        <div>
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Start Examination</button>
-        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.1rem; padding: 16px;">
+            <i class="fas fa-sign-in-alt"></i> Start Examination
+        </button>
     </form>
 
-    <div
-        style="margin-top: 30px; padding: 15px; background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 10px;">
-        <p style="font-size: 0.9em; color: #ffd166;">
-            <strong>Warning:</strong> The proctoring system will monitor your face throughout the exam. Multiple faces
-            or missing faces will be logged as violations.
-        </p>
+    <div class="alert-warning">
+        <div style="display: flex; gap: 15px; align-items: flex-start;">
+            <i class="fas fa-exclamation-triangle" style="color: var(--warning); margin-top: 4px;"></i>
+            <div>
+                <p><strong>Proctoring Notice:</strong></p>
+                <p style="color: var(--text-muted); margin-top: 5px;">Your webcam will be active. Suspicious activities
+                    such as looking away, multiple people in frame, or tab switching will be flagged instantly.</p>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

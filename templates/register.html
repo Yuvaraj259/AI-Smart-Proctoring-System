@@ -4,31 +4,45 @@
 
 {% block content %}
 <div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2>Face Registration</h2>
-        <a href="{{ url_for('index') }}" class="btn" style="background: rgba(255,255,255,0.1); color: white;">Back</a>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2 class="gradient-text"><i class="fas fa-camera"></i> Face Registration</h2>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
     </div>
 
-    <p style="color: var(--text-muted); margin-bottom: 25px;">
-        Please position your face clearly in the camera and click <strong>Capture & Register</strong>.
-        This will be used for anti-impersonation during the exam.
+    <p style="color: var(--text-muted); margin-bottom: 30px; font-size: 1rem;">
+        Please position your face clearly in the camera frame and click <strong>Capture & Register</strong>.
+        This prevents impersonation and ensures exam integrity.
     </p>
 
-    <div class="video-container" style="max-width: 500px; margin: 0 auto;">
+    <div class="video-container" style="max-width: 500px; margin: 0 auto; border: 4px solid var(--glass-border);">
         <video id="webcam" autoplay playsinline muted
-            style="width: 100%; transform: scaleX(-1); background: #000; border-radius: 10px;"></video>
+            style="width: 100%; transform: scaleX(-1); background: #000; display: block;"></video>
         <canvas id="photo-canvas" style="display: none;"></canvas>
+        <div class="status-badge" id="camera-badge" style="display: none;">
+            <div class="status-dot"></div>
+            <span>LIVE FEED</span>
+        </div>
     </div>
 
-    <div style="margin-top: 30px; text-align: center;">
+    <div style="margin-top: 40px; text-align: center; max-width: 400px; margin-left: auto; margin-right: auto;">
         <div id="registration-form">
-            <input type="text" id="reg_student_id" placeholder="Student ID (e.g. STU001)"
-                style="margin-bottom: 15px; max-width: 300px;">
-            <br>
-            <button id="capture-btn" class="btn btn-primary" style="width: 300px;" disabled>Waiting for
-                Camera...</button>
+            <div style="margin-bottom: 20px;">
+                <label for="reg_student_id"
+                    style="display: block; text-align: left; margin-bottom: 8px; font-weight: 600;">Student ID</label>
+                <div style="position: relative;">
+                    <i class="fas fa-id-badge"
+                        style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" id="reg_student_id" placeholder="e.g. STU001"
+                        style="padding-left: 45px; margin: 0;">
+                </div>
+            </div>
+            <button id="capture-btn" class="btn btn-primary" style="width: 100%;" disabled>
+                <i class="fas fa-circle-notch fa-spin"></i> Initializing...
+            </button>
         </div>
-        <div id="status-msg" style="margin-top: 15px;"></div>
+        <div id="status-msg" style="margin-top: 20px; font-weight: 500; min-height: 24px;"></div>
     </div>
 </div>
 
@@ -38,72 +52,68 @@
     const captureBtn = document.getElementById('capture-btn');
     const statusMsg = document.getElementById('status-msg');
     const studentIdInput = document.getElementById('reg_student_id');
+    const cameraBadge = document.getElementById('camera-badge');
 
     async function initCamera() {
         const constraints = [
             { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
-            { video: true } // Fallback to any video device
+            { video: true }
         ];
+
+        statusMsg.innerHTML = `<span style="color: var(--text-muted);">Connecting to camera...</span>`;
 
         for (const constraint of constraints) {
             try {
-                console.log("Attempting camera with:", constraint);
                 const stream = await navigator.mediaDevices.getUserMedia(constraint);
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
                     video.play();
                     captureBtn.disabled = false;
-                    captureBtn.innerText = "Capture & Register";
-                    statusMsg.innerHTML = `<span style="color: var(--success-color);">Camera connected and ready.</span>`;
+                    captureBtn.innerHTML = `<i class="fas fa-camera"></i> Capture & Register`;
+                    statusMsg.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Camera connected and ready</span>`;
+                    cameraBadge.style.display = 'flex';
                 };
-                return; // Success!
+                return;
             } catch (err) {
                 console.warn(`Constraint failed:`, err);
             }
         }
-
-        // If we get here, all attempts failed
         handleCameraError();
     }
 
-    // Listen for hardware changes (like toggling a physical switch)
-    if (navigator.mediaDevices) {
-        navigator.mediaDevices.addEventListener('devicechange', () => {
-            console.log("Hardware change detected, retrying...");
-            initCamera();
-        });
-    }
-
     async function handleCameraError() {
-        let errorTitle = "Hardware Not Found";
+        let errorTitle = "Camera Access Denied";
         let instructions = `
-            <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9em; line-height: 1.6;">
-                <p>Despite browser permission being <b>ON</b>, your Windows OS is hiding the camera hardware.</p>
-                <strong>Try these 3 fixes:</strong><br>
-                1. <b>Keyboard Switch:</b> Press <b>F8</b> or <b>Fn+F8</b> (or look for a camera icon on your F-keys). This "connects" the hardware.<br>
-                2. <b>Windows Privacy:</b> Search "Camera Privacy Settings" in Windows and enable <b>"Allow desktop apps to access your camera"</b>.<br>
-                3. <b>Physical Slider:</b> Check if there is a tiny physical slider above your laptop screen lens.
+            <div style="text-align: left; background: rgba(0,0,0,0.22); padding: 18px; border-radius: 12px; margin-top: 15px; font-size: 0.9em; line-height: 1.6; border: 1px solid var(--glass-border);">
+                <p>We couldn't access your camera. This is required for proctoring.</p>
+                <div style="margin-top: 10px;">
+                    <strong>Troubleshooting:</strong><br>
+                    • <b>Permissions:</b> Ensure browser camera permission is allowed.<br>
+                    • <b>Privacy Settings:</b> In Windows, enable "Allow apps to access your camera".<br>
+                    • <b>Hardware:</b> Check if your webcam is physically covered or switched off.
+                </div>
             </div>
         `;
 
         if (!navigator.mediaDevices) {
             errorTitle = "Insecure Context Block";
             instructions = `
-                <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
-                    <strong>Browser is blocking the camera.</strong><br>
-                    1. Change your URL to <strong>http://localhost:5000</strong><br>
-                    2. Do NOT use 127.0.0.1.
+                <div style="text-align: left; background: rgba(0,0,0,0.22); padding: 18px; border-radius: 12px; margin-top: 15px; font-size: 0.9em;">
+                    <strong>Browser Security Restriction:</strong><br>
+                    Camera access requires HTTPS or Localhost. Since this is an MVP, please ensure you're accessing via a secure connection.
                 </div>
             `;
         }
 
         statusMsg.innerHTML = `
-            <div style="color: var(--error-color);">
-                <h4 style="margin: 0;">${errorTitle}</h4>
+            <div style="color: var(--error);">
+                <h4 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i> ${errorTitle}
+                </h4>
                 ${instructions}
             </div>
         `;
-        captureBtn.innerText = "Check Again & Refresh";
+        captureBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Retry Connection`;
         captureBtn.disabled = false;
         captureBtn.onclick = () => window.location.reload();
     }
@@ -117,16 +127,15 @@
     captureBtn.addEventListener('click', async () => {
         const studentId = studentIdInput.value.trim();
         if (!studentId) {
-            statusMsg.innerHTML = `<span style="color: var(--error-color);">Please enter your Student ID.</span>`;
+            statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-exclamation-circle"></i> Please enter your Student ID.</span>`;
             return;
         }
 
-        statusMsg.innerHTML = `<span style="color: var(--text-muted);">Processing face encoding...</span>`;
+        statusMsg.innerHTML = `<span style="color: var(--accent);"><i class="fas fa-spinner fa-spin"></i> Processing face encoding...</span>`;
         captureBtn.disabled = true;
 
-        // Capture frame
         if (video.videoWidth === 0 || video.videoHeight === 0) {
-            statusMsg.innerHTML = `<span style="color: var(--error-color);">Camera not ready. Please wait a moment.</span>`;
+            statusMsg.innerHTML = `<span style="color: var(--error);">Camera not ready. Please wait...</span>`;
             captureBtn.disabled = false;
             return;
         }
@@ -149,17 +158,17 @@
 
             const result = await response.json();
             if (result.success) {
-                statusMsg.innerHTML = `<span style="color: var(--success-color);">${result.message}</span>`;
+                statusMsg.innerHTML = `<span style="color: var(--success); font-weight: bold;"><i class="fas fa-check-double"></i> ${result.message}</span>`;
                 setTimeout(() => {
                     window.location.href = '/';
                 }, 2000);
             } else {
-                statusMsg.innerHTML = `<span style="color: var(--error-color);">${result.message}</span>`;
+                statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-times-circle"></i> ${result.message}</span>`;
                 captureBtn.disabled = false;
             }
         } catch (err) {
             console.error("Registration error:", err);
-            statusMsg.innerHTML = `<span style="color: var(--error-color);">An error occurred. Please try again.</span>`;
+            statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-wifi"></i> Network error. Please try again.</span>`;
             captureBtn.disabled = false;
         }
     });
