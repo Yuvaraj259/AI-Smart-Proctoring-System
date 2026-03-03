@@ -244,6 +244,38 @@ input[type="text"]:focus {
     font-size: 0.85rem;
 }
 
+.violation-impersonation {
+    border-left: 3px solid var(--error) !important;
+}
+
+.violation-impersonation .violation-type-text {
+    color: var(--error);
+}
+
+.violation-no_face {
+    border-left: 3px solid var(--warning) !important;
+}
+
+.violation-no_face .violation-type-text {
+    color: var(--warning);
+}
+
+.violation-multiple_faces {
+    border-left: 3px solid var(--error) !important;
+}
+
+.violation-multiple_faces .violation-type-text {
+    color: var(--error);
+}
+
+.violation-tab_switch {
+    border-left: 3px solid var(--accent) !important;
+}
+
+.violation-tab_switch .violation-type-text {
+    color: var(--text-main);
+}
+
 .alert-warning {
     margin-top: 30px;
     padding: 20px;
