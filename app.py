@@ -156,7 +156,6 @@ def process_proctor_frame(exam_id):
     })
 
 @app.route('/stop_exam/<int:exam_id>')
-
 def stop_exam(exam_id):
     from models import ExamModel
     if exam_id in active_exams:

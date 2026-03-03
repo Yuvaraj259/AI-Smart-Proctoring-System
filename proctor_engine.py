@@ -88,3 +88,6 @@ class ProctorEngine:
 
         return frame, violation_type
 
+    def stop(self):
+        """Dummy stop method for compatibility."""
+        pass
