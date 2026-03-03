@@ -51,24 +51,29 @@ def register_face():
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Use Haar Cascade to find the face
-    # Try different common paths for cascades or download if missing
-    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-    face_cascade = cv2.CascadeClassifier(cascade_path)
+    import os
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    local_cascade = os.path.join(base_dir, 'cascades', 'haarcascade_frontalface_default.xml')
+    
+    if os.path.exists(local_cascade):
+        face_cascade = cv2.CascadeClassifier(local_cascade)
+    else:
+        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        face_cascade = cv2.CascadeClassifier(cascade_path)
     
     if face_cascade.empty():
-        # Fallback to a local path or common linux path
         face_cascade = cv2.CascadeClassifier('/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml')
 
     # Detect faces with more lenient parameters
-    # scaleFactor=1.1 (smaller is more thorough), minNeighbors=3 (lower is more lenient)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(30, 30))
     
     if len(faces) == 0:
-        # Final attempt with extreme leniency
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3)
-        
-    if len(faces) == 0:
-        return jsonify({'success': False, 'message': 'No face detected. Ensure your face is well-lit and clearly visible.'})
+        # Check if the image is actually black (sum of pixels)
+        pix_sum = np.sum(gray)
+        if pix_sum < 1000: # Very conservative threshold for near-black
+            return jsonify({'success': False, 'message': 'Camera problem: The captured frame is black. Please check your webcam.'})
+        return jsonify({'success': False, 'message': 'No face detected. Please ensure you are well-lit.'})
+
     if len(faces) > 1:
         return jsonify({'success': False, 'message': 'Multiple faces detected. Please ensure only one person is in the frame.'})
 

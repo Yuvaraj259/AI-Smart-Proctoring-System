@@ -11,8 +11,10 @@
         </a>
     </div>
 
-    <!-- Hidden components for frame capture -->
-    <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+    <!-- Render-ready video for capturing frames (hidden from view but active) -->
+    <video id="webcam" autoplay playsinline muted
+        style="width: 1px; height: 1px; opacity: 0.01; position: absolute; pointer-events: none;"></video>
+    <!-- Hidden canvas for processing -->
     <canvas id="proc-canvas" style="display: none;"></canvas>
 
     <div class="video-container">

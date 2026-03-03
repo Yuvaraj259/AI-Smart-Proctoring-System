@@ -24,9 +24,18 @@ class ProctorEngine:
             except Exception as e:
                 print(f"Error initializing face recognizer: {e}")
 
-        # Load the Haar Cascade
-        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        # Load the Haar Cascade - use local repo file first for Vercel stability
+        import os
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        local_cascade = os.path.join(base_dir, 'cascades', 'haarcascade_frontalface_default.xml')
+        
+        if os.path.exists(local_cascade):
+            self.face_cascade = cv2.CascadeClassifier(local_cascade)
+        else:
+            # Fallback
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            self.face_cascade = cv2.CascadeClassifier(cascade_path)
+            
         if self.face_cascade.empty():
             self.face_cascade = cv2.CascadeClassifier('/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml')
 
