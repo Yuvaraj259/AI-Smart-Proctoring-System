@@ -3,53 +3,97 @@
 {% block title %}Examination Report{% endblock %}
 
 {% block content %}
-<div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2>Examination Report</h2>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Home</a>
+<div class="glass-card" style="max-width: 800px; width: 100%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2 class="gradient-text"><i class="fas fa-file-invoice"></i> Final Security Report</h2>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <i class="fas fa-home"></i> Home
+        </a>
     </div>
 
-    <div style="margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-            <p style="color: var(--text-muted);">Student ID</p>
-            <p style="font-weight: 600; font-size: 1.1em;">{{ exam.student_id }}</p>
+    <!-- Summary Stats Card -->
+    <div
+        style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px; margin-bottom: 40px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">
+                    Student Information</p>
+                <p style="font-weight: 700; font-size: 1.1rem; color: white;">{{ exam.student_id }}</p>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Session ID: #{{ exam.exam_id }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px;">
+                    Overall Status</p>
+                {% if violations|length > 10 %}
+                <span
+                    style="background: rgba(239, 68, 68, 0.15); color: var(--error); padding: 5px 15px; border-radius: 20px; font-weight: 700; font-size: 0.8rem;">SUSPICIOUS</span>
+                {% elif violations|length > 0 %}
+                <span
+                    style="background: rgba(245, 158, 11, 0.15); color: var(--warning); padding: 5px 15px; border-radius: 20px; font-weight: 700; font-size: 0.8rem;">CAUTION</span>
+                {% else %}
+                <span
+                    style="background: rgba(34, 197, 94, 0.15); color: var(--success); padding: 5px 15px; border-radius: 20px; font-weight: 700; font-size: 0.8rem;">VERIFIED
+                    SECURE</span>
+                {% endif %}
+            </div>
         </div>
-        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-            <p style="color: var(--text-muted);">Exam ID</p>
-            <p style="font-weight: 600; font-size: 1.1em;">#{{ exam.exam_id }}</p>
-        </div>
-        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-            <p style="color: var(--text-muted);">Start Time</p>
-            <p style="font-weight: 600;">{{ exam.start_time }}</p>
-        </div>
-        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-            <p style="color: var(--text-muted);">End Time</p>
-            <p style="font-weight: 600;">{{ exam.end_time or 'N/A' }}</p>
+
+        <div style="height: 1px; background: var(--glass-border); margin: 20px 0;"></div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 5px;"><i class="far fa-clock"></i>
+                    Start Time</p>
+                <p style="font-weight: 600; color: var(--text-main);">{{ exam.start_time }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 5px;"><i
+                        class="fas fa-hourglass-end"></i> End Time</p>
+                <p style="font-weight: 600; color: var(--text-main);">{{ exam.end_time or 'Manual Termination' }}</p>
+            </div>
         </div>
     </div>
 
-    <h3>Violation Summary</h3>
-    <div class="violation-list">
+    <!-- Violation Timeline -->
+    <h3 style="margin-bottom: 20px; font-size: 1.3rem;"><i class="fas fa-stream"></i> Incident Timeline</h3>
+    <div class="violation-list" style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
         {% if violations %}
         {% for v in violations %}
-        <div class="violation-item">
-            <span class="violation-type"
-                style="color: {% if v.type == 'NO_FACE' %}#f59e0b{% elif v.type == 'IMPERSONATION' %}#ef4444{% else %}#ef4444{% endif %};">
-                {{ v.type }}
-            </span>
-            <span class="timestamp">{{ v.timestamp }}</span>
+        <div class="violation-item"
+            style="border-left: 3px solid {% if v.type == 'IMPERSONATION' %}var(--error){% elif v.type == 'NO_FACE' %}var(--warning){% else %}var(--accent){% endif %}; margin-bottom: 12px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span
+                        style="font-weight: 700; text-transform: uppercase; font-size: 0.85rem; color: {% if v.type == 'IMPERSONATION' %}var(--error){% elif v.type == 'NO_FACE' %}var(--warning){% else %}var(--text-main){% endif %};">
+                        {{ v.type.replace('_', ' ') }}
+                    </span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">Anomaly detected during
+                        monitoring</div>
+                </div>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">{{ v.timestamp
+                    }}</span>
+            </div>
         </div>
         {% endfor %}
         {% else %}
-        <p style="padding: 20px; text-align: center; color: var(--success-color);">
-            No violations detected. Clean session!
-        </p>
+        <div
+            style="padding: 60px; text-align: center; background: rgba(34, 197, 94, 0.03); border: 1px dashed rgba(34, 197, 94, 0.2); border-radius: 20px;">
+            <i class="fas fa-shield-check" style="font-size: 50px; color: var(--success); margin-bottom: 20px;"></i>
+            <h4 style="color: var(--success);">Perfect Integrity</h4>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">No security violations were detected during this
+                session.</p>
+        </div>
         {% endif %}
     </div>
 
-    <div style="margin-top: 30px; text-align: center;">
-        <button onclick="window.print()" class="btn" style="background: rgba(255,255,255,0.1); color: white;">Print
-            Report</button>
+    <!-- Actions -->
+    <div style="margin-top: 40px; display: flex; gap: 15px; justify-content: center;">
+        <button onclick="window.print()" class="btn btn-secondary" style="flex: 1; max-width: 200px;">
+            <i class="fas fa-print"></i> Print Report
+        </button>
+        <a href="{{ url_for('index') }}" class="btn btn-primary" style="flex: 1; max-width: 200px;">
+            <i class="fas fa-check-circle"></i> Done
+        </a>
     </div>
 </div>
 {% endblock %}

@@ -1,50 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}Face Registration{% endblock %}
+{% block title %}Biometric Registration{% endblock %}
 
 {% block content %}
-<div class="glass-card">
+<div class="glass-card" style="max-width: 600px; width: 100%;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-        <h2 class="gradient-text"><i class="fas fa-camera"></i> Face Registration</h2>
+        <h2 class="gradient-text"><i class="fas fa-id-card"></i> Face Registration</h2>
         <a href="{{ url_for('index') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back
         </a>
     </div>
 
-    <p style="color: var(--text-muted); margin-bottom: 30px; font-size: 1rem;">
-        Please position your face clearly in the camera frame and click <strong>Capture & Register</strong>.
-        This prevents impersonation and ensures exam integrity.
-    </p>
-
-    <div class="video-container"
-        style="max-width: 500px; margin: 0 auto; border: 2px solid var(--primary); box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);">
-        <video id="webcam" autoplay playsinline muted
-            style="width: 100%; transform: scaleX(-1); background: #000; display: block;"></video>
-
-        <canvas id="photo-canvas" style="display: none;"></canvas>
-        <div class="status-badge" id="camera-badge" style="display: none;">
-            <div class="status-dot"></div>
-            <span>LIVE FEED</span>
+    <!-- Security Information -->
+    <div
+        style="background: rgba(99, 102, 241, 0.05); border: 1px solid var(--glass-border); border-radius: 15px; padding: 20px; margin-bottom: 30px; display: flex; gap: 15px; align-items: center;">
+        <i class="fas fa-shield-alt" style="font-size: 24px; color: var(--primary);"></i>
+        <div style="font-size: 0.85rem; color: var(--text-main);">
+            <strong>Privacy Note:</strong> Your facial data is encrypted and used only for identity verification during
+            active proctoring sessions.
         </div>
     </div>
 
-    <div style="margin-top: 40px; text-align: center; max-width: 400px; margin-left: auto; margin-right: auto;">
-        <div id="registration-form">
-            <div style="margin-bottom: 20px;">
-                <label for="reg_student_id"
-                    style="display: block; text-align: left; margin-bottom: 8px; font-weight: 600;">Student ID</label>
-                <div style="position: relative;">
-                    <i class="fas fa-id-badge"
-                        style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                    <input type="text" id="reg_student_id" placeholder="e.g. STU001"
-                        style="padding-left: 45px; margin: 0;">
-                </div>
-            </div>
-            <button id="capture-btn" class="btn btn-primary" style="width: 100%;" disabled>
-                <i class="fas fa-circle-notch fa-spin"></i> Initializing...
-            </button>
+    <div class="video-container"
+        style="max-width: 100%; margin: 0 auto 30px auto; border: 2px solid var(--primary); box-shadow: 0 0 30px rgba(99, 102, 241, 0.1); border-radius: 20px;">
+        <video id="webcam" autoplay playsinline muted
+            style="width: 100%; transform: scaleX(-1); background: #000; display: block; border-radius: 18px;"></video>
+        <canvas id="photo-canvas" style="display: none;"></canvas>
+        <div class="status-badge" id="camera-badge" style="display: none;">
+            <div class="status-dot"></div>
+            <span>LIVE FEED ACTIVE</span>
         </div>
-        <div id="status-msg" style="margin-top: 20px; font-weight: 500; min-height: 24px;"></div>
+    </div>
+
+    <!-- Registration Form -->
+    <div style="text-align: center; max-width: 400px; margin: 0 auto;">
+        <div class="form-group" style="margin-bottom: 25px;">
+            <label for="reg_student_id"
+                style="display: block; text-align: left; color: var(--text-muted); margin-bottom: 10px; font-size: 0.85rem; text-transform: uppercase;">Student
+                ID Verification</label>
+            <div style="position: relative;">
+                <i class="fas fa-user-tag"
+                    style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                <input type="text" id="reg_student_id" class="input-field" placeholder="e.g. STU001"
+                    style="padding-left: 45px; margin-bottom: 0;">
+            </div>
+        </div>
+
+        <button id="capture-btn" class="btn btn-primary" style="width: 100%; padding: 15px; margin-bottom: 20px;"
+            disabled>
+            <i class="fas fa-circle-notch fa-spin"></i> Initializing System...
+        </button>
+
+        <div id="status-msg"
+            style="min-height: 30px; border-radius: 10px; padding: 10px; font-size: 0.9rem; display: none;"></div>
     </div>
 </div>
 
@@ -56,97 +64,58 @@
     const studentIdInput = document.getElementById('reg_student_id');
     const cameraBadge = document.getElementById('camera-badge');
 
+    function showStatus(msg, type = 'info') {
+        statusMsg.style.display = 'block';
+        statusMsg.style.background = type === 'error' ? 'rgba(239, 68, 68, 0.1)' :
+            type === 'success' ? 'rgba(34, 197, 94, 0.1)' :
+                'rgba(99, 102, 241, 0.1)';
+        statusMsg.style.color = type === 'error' ? 'var(--error)' :
+            type === 'success' ? 'var(--success)' :
+                'var(--primary)';
+
+        const icon = type === 'error' ? '<i class="fas fa-exclamation-triangle"></i> ' :
+            type === 'success' ? '<i class="fas fa-check-circle"></i> ' :
+                '<i class="fas fa-spinner fa-spin"></i> ';
+
+        statusMsg.innerHTML = icon + msg;
+    }
+
     async function initCamera() {
-        const constraints = [
-            { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
-            { video: true }
-        ];
-
-        statusMsg.innerHTML = `<span style="color: var(--text-muted);">Connecting to camera...</span>`;
-
-        for (const constraint of constraints) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia(constraint);
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    captureBtn.disabled = false;
-                    captureBtn.innerHTML = `<i class="fas fa-camera"></i> Capture & Register`;
-                    statusMsg.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Camera connected and ready</span>`;
-                    cameraBadge.style.display = 'flex';
-                };
-                return;
-            } catch (err) {
-                console.warn(`Constraint failed:`, err);
-            }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                captureBtn.disabled = false;
+                captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Biometrics';
+                cameraBadge.style.display = 'flex';
+                showStatus('Align your face within the frame.', 'info');
+            };
+        } catch (err) {
+            console.error("Camera error:", err);
+            showStatus('Camera access denied. Please check permissions.', 'error');
+            captureBtn.innerHTML = '<i class="fas fa-sync"></i> Retry';
+            captureBtn.disabled = false;
+            captureBtn.onclick = () => window.location.reload();
         }
-        handleCameraError();
     }
 
-    async function handleCameraError() {
-        let errorTitle = "Camera Access Denied";
-        let instructions = `
-            <div style="text-align: left; background: rgba(0,0,0,0.22); padding: 18px; border-radius: 12px; margin-top: 15px; font-size: 0.9em; line-height: 1.6; border: 1px solid var(--glass-border);">
-                <p>We couldn't access your camera. This is required for proctoring.</p>
-                <div style="margin-top: 10px;">
-                    <strong>Troubleshooting:</strong><br>
-                    • <b>Permissions:</b> Ensure browser camera permission is allowed.<br>
-                    • <b>Privacy Settings:</b> In Windows, enable "Allow apps to access your camera".<br>
-                    • <b>Hardware:</b> Check if your webcam is physically covered or switched off.
-                </div>
-            </div>
-        `;
-
-        if (!navigator.mediaDevices) {
-            errorTitle = "Insecure Context Block";
-            instructions = `
-                <div style="text-align: left; background: rgba(0,0,0,0.22); padding: 18px; border-radius: 12px; margin-top: 15px; font-size: 0.9em;">
-                    <strong>Browser Security Restriction:</strong><br>
-                    Camera access requires HTTPS or Localhost. Since this is an MVP, please ensure you're accessing via a secure connection.
-                </div>
-            `;
-        }
-
-        statusMsg.innerHTML = `
-            <div style="color: var(--error);">
-                <h4 style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-exclamation-triangle"></i> ${errorTitle}
-                </h4>
-                ${instructions}
-            </div>
-        `;
-        captureBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Retry Connection`;
-        captureBtn.disabled = false;
-        captureBtn.onclick = () => window.location.reload();
-    }
-
-    if (!navigator.mediaDevices) {
-        handleCameraError();
-    } else {
-        initCamera();
-    }
+    initCamera();
 
     captureBtn.addEventListener('click', async () => {
         const studentId = studentIdInput.value.trim();
         if (!studentId) {
-            statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-exclamation-circle"></i> Please enter your Student ID.</span>`;
+            showStatus('Please enter your Student ID.', 'error');
             return;
         }
 
-        statusMsg.innerHTML = `<span style="color: var(--accent);"><i class="fas fa-spinner fa-spin"></i> Processing face encoding...</span>`;
+        showStatus('Analyzing biometric signature...', 'loading');
         captureBtn.disabled = true;
-
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-            statusMsg.innerHTML = `<span style="color: var(--error);">Camera not ready. Please wait...</span>`;
-            captureBtn.disabled = false;
-            return;
-        }
 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
 
-        const imageData = canvas.toDataURL('image/jpeg');
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
 
         try {
             const response = await fetch('/register_face', {
@@ -160,17 +129,16 @@
 
             const result = await response.json();
             if (result.success) {
-                statusMsg.innerHTML = `<span style="color: var(--success); font-weight: bold;"><i class="fas fa-check-double"></i> ${result.message}</span>`;
+                showStatus('Biometric registration complete!', 'success');
                 setTimeout(() => {
                     window.location.href = '/';
                 }, 2000);
             } else {
-                statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-times-circle"></i> ${result.message}</span>`;
+                showStatus(result.message || 'Registration failed.', 'error');
                 captureBtn.disabled = false;
             }
         } catch (err) {
-            console.error("Registration error:", err);
-            statusMsg.innerHTML = `<span style="color: var(--error);"><i class="fas fa-wifi"></i> Network error. Please try again.</span>`;
+            showStatus('Connection lost. Please try again.', 'error');
             captureBtn.disabled = false;
         }
     });
